@@ -240,9 +240,64 @@ Using `jps` command to chech Java process, you should see all services are start
 ```
 jps
 ```
+![jps](/imgs/jps.png)
 
 ### 6. Web interface
 
 The Hadoop NameNode web interface is running port `9870`. Open your web browser and visit the server IP address followed by port `9870` (ie: http://127.0.0.1:9870)
 
 The ResourceManager should be running at the default port `8088`. Open your web browser and visit the server IP address followed by the ResourceManager port `8088` (i.e: http://127.0.0.1:8088).
+
+## Spark installation
+
+### 1. Downloading Spark
+
+```
+wget https://dlcdn.apache.org/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3.tgz
+
+tar -xvzf spark-3.5.0-bin-hadoop3.tgz
+sudo mv spark-3.5.0-bin-hadoop3 /usr/local/spark
+sudo rm -r spark-3.5.0-bin-hadoop3
+```
+
+### 2. Setting up Spark environment
+
+Open the configuration file
+
+```
+nano ~/.bashrc
+```
+
+Add the following line and save it
+
+```
+export SPARK_HOME=/usr/local/spark
+export PATH=$PATH:$SPARK_HOME/bin
+```
+
+Run this command to apply new changes
+
+```
+source ~/.bashrc
+```
+
+### 3. Verifing installation
+
+Run this command, you should see Spark shell with logo
+
+```
+spark-shell
+```
+
+Download this repo and run spark-submit with `ingestion.py` file
+
+```
+spark-submit ingestion.py
+```
+
+If you did not see any errors, your installation is complete.
+
+You could see a parquest file in HDFS web interface
+
+![ingestion](/imgs/hdfs_ingestion.png)
+
