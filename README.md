@@ -12,7 +12,7 @@ Installation document for data engineering tools: Hadoop, Spark, Hive, Presto, K
 ### 1. Installing Java OpenJDK
 
 ```
-sudo apt install default-jdk
+sudo apt install openjdk-8-jdk
 java -version
 ```
 
@@ -54,7 +54,7 @@ Copy and paste the following lines to file
 
 ```
 # Hadoop environment variables
-export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 export HADOOP_HOME=/usr/local/hadoop
 export HADOOP_INSTALL=$HADOOP_HOME
 export HADOOP_MAPRED_HOME=$HADOOP_HOME
@@ -81,7 +81,7 @@ nano $HADOOP_HOME/etc/hadoop/hadoop-env.sh
 Uncomment the `JAVA_HOME`` environment line and change the value to the Java OpenJDK installation directory. Then save it
 
 ```
-export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ```
 
 Verify Hadoop version
@@ -301,3 +301,148 @@ You could see a parquest file in HDFS web interface
 
 ![ingestion](/imgs/hdfs_ingestion.png)
 
+## Hive installation
+
+### 1. Downloading Hive
+
+```
+wget https://apache.osuosl.org/hive/hive-3.1.3/apache-hive-3.1.3-bin.tar.gz
+tar -xzf apache-hive-3.1.3-bin.tar.gz
+mv apache-hive-3.1.3 /usr/local/hive
+```
+
+### 2. Setting up Hive environment
+
+Append Hive environment variables to `.bashrc` file and save it
+
+```
+export HIVE_HOME=/home/prabha/hive
+export PATH=$PATH:$HIVE_HOME/sbin:$HIVE_HOME/bin
+export CLASSPATH=$CLASSPATH:$HADOOP_HOME/lib/*:$HIVE_HOME/lib/*
+```
+
+Run this command to apply new changes
+
+```
+source ~/.bashrc
+```
+
+### 3. Installing MySQL and configure it as Hive metastore
+
+Install with the command below
+
+```
+sudo apt-get install mysql-server
+```
+
+Go to mysql terminal (use root as password)
+
+```
+sudo mysql -u root -p
+```
+
+In mysql terminal, run these command in order:
+- CREATE DATABASE metastore_db;
+- CREATE USER 'hiveusr'@'%' IDENTIFIED BY 'hivepassword';
+- GRANT all on *.* to 'hiveusr'@'%';
+- flush privileges;
+- exit;
+
+Note that you can change your mysql username and password
+
+Install mysql connector and copy connection jar file to hive lib
+
+```
+wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-j-8.3.0.tar.gz
+
+tar -xvf mysql-connector-j-8.3.0.tar.gz 
+
+cd mysql-connector-j-8.3.0/
+
+sudo cp mysql-connector-j-8.3.0.jar $HIVE_HOME/lib/
+```
+
+After that, remove `log4j-slf4j-impl-2.17.1.jar` file in `$HIVE_HOME/lib/` to prevent duplicated error
+
+```
+sudo rm log4j-slf4j-impl-2.17.1.jar
+```
+
+### 4. Edit Hive configuration
+
+Create some HDFS folders
+
+```
+hdfs dfs -mkdir -p /user/hive/warehouse
+
+hdfs dfs -mkdir -p /tmp/hive
+
+hdfs dfs -chmod g+w /user/tmp
+hdfs dfs -chmod g+w /user/hive/warehouse
+```
+
+Go to `conf` folder, copy and edit `hive-site.xml`
+
+```
+cd $HIVE_HOME/conf
+cp hive-default.xml.template hive-site.xml
+sudo nano hive-site.xml
+```
+
+In `hive-site.xml`
+
+- Replacing all occurrences of `${system:user.name}` to your username
+- Replacing all occurrences of `${system:java.io.tmpdir}` to `/tmp/hive`. This is the location Hive stores all it’s temporary files.
+- Searching `javax.jdo.option.ConnectionURL` and change its value to `jdbc:mysql://localhost/metastore_db?createDatabaseIfNotExist=true`
+
+```
+
+<name>javax.jdo.option.ConnectionURL</name> 
+<value>jdbc:mysql://localhost/metastore_db?createDatabaseIfNotExist=true</value> 
+```
+
+- Searching `javax.jdo.option.ConnectionUserName` and change its value to mysql username, in my case was `hiveusr`
+
+```
+<name>javax.jdo.option.ConnectionUserName</name> 
+<value>hiveusr</value>
+```
+
+- Searching `javax.jdo.option.ConnectionPassword` and change its value to mysql username, in my case was `hivepassword`
+
+```
+<name>javax.jdo.option.ConnectionPassword</name> 
+<value>hivepassword</value> 
+```
+
+- Searching `javax.jdo.option.ConnectionDriverName` and change its value to `com.mysql.cj.jdbc.Driver`
+
+```
+<name>javax.jdo.option.ConnectionDriverName</name> 
+<value>com.mysql.jdbc.Driver</value>
+```
+
+- Searching `&#8` and remove it if it had
+
+Then, copy and edit `hive-env.sh`
+
+```
+cd $HIVE_HOME/conf
+cp hive-env.sh.template hive-env.sh
+sudo nano hive-env.sh
+```
+
+Append the below line to `hive-env.sh`
+
+```
+export HADOOP_HOME=/usr/local/hadoop
+```
+
+### 5. Verifying installation
+
+```
+cd $HIVE_HOME/bin
+hive
+```
+You should see the below result
+![hive](/imgs/hive.png)
