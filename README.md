@@ -1,6 +1,6 @@
 # Data-tools-docs
 
-Installation document for data engineering tools: Hadoop, Spark, Hive, Presto, Kafka,...and connection between them.
+Installation document for data engineering tools: Hadoop, Spark, Hive, Presto and the connection between them.
 
 ## My environment
 
@@ -10,6 +10,8 @@ Installation document for data engineering tools: Hadoop, Spark, Hive, Presto, K
 ## Hadoop installation
 
 ### 1. Installing Java OpenJDK
+
+Should not install Java 11 version becasue HIVE is not compatible with it
 
 ```
 sudo apt install openjdk-8-jdk
@@ -396,7 +398,6 @@ In `hive-site.xml`
 - Searching `javax.jdo.option.ConnectionURL` and change its value to `jdbc:mysql://localhost/metastore_db?createDatabaseIfNotExist=true`
 
 ```
-
 <name>javax.jdo.option.ConnectionURL</name> 
 <value>jdbc:mysql://localhost/metastore_db?createDatabaseIfNotExist=true</value> 
 ```
@@ -445,4 +446,134 @@ cd $HIVE_HOME/bin
 hive
 ```
 You should see the below result
+
 ![hive](/imgs/hive.png)
+
+## Presto Installation
+
+### 1. Downloading Presto server
+
+```
+wget https://repo1.maven.org/maven2/com/facebook/presto/presto-server/0.285/presto-server-0.285.tar.gz
+
+tar -xzf presto-server-0.285.tar.gz
+mv ./presto-server-0.285 ./presto-server
+```
+
+### 2. Configuration
+
+Create folder named `data` outside of `presto-server` folder, this folder uses to save log, metadata,...
+
+```
+mkdir data
+```
+
+Create folder named `etc` inside of `presto-server` folder
+
+```
+cd presto-server
+mkdir etc
+cd etc
+```
+
+Adding some configuration files with these contents
+
+- node.properties: replacing < your-data-folder > to the path of data folder you created before
+
+```
+node.environment=production
+node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
+node.data-dir=<your-data-folder>
+```
+
+- config.properties
+
+```
+coordinator=true
+node-scheduler.include-coordinator=true
+http-server.http.port=8080
+query.max-memory=5GB
+query.max-memory-per-node=1GB
+discovery-server.enabled=true
+discovery.uri=http://127.0.0.1:8080
+```
+
+- log.properties
+
+```
+com.facebook.presto = INFO
+```
+
+- jvm.config
+
+```
+-server
+-Xmx16G
+-XX:+UseG1GC
+-XX:G1HeapRegionSize=32M
+-XX:+UseGCOverheadLimit
+-XX:+ExplicitGCInvokesConcurrent
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:+ExitOnOutOfMemoryError
+-Djdk.attach.allowAttachSelf=true
+```
+
+Next, create folder named `catalog` inside `etc` folder
+
+```
+mkdir catalog
+cd catalog
+```
+Adding some configuration files with these contents
+
+- jmx.properties
+
+```
+connector.name = jmx
+```
+
+- hive.properties
+
+```
+connector.name = hive-hadoop2
+hive.metastore.uri = thrift://localhost:9083
+```
+
+### 3. Start presto server
+
+```
+cd ../../
+
+sudo bin/launcher run
+```
+
+You should see this screen
+
+![presto-server](/imgs/presto-server.png)
+
+If you want to run in background, you can you this command `sudo bin/launcher start` instead
+
+### 4. Downloading Presto client
+
+```
+wget https://repo1.maven.org/maven2/com/facebook/presto/presto-cli/0.285/presto-cli-0.285-executable.jar
+
+sudo mv presto-cli-0.285-executable.jar presto
+chmod +x presto
+```
+
+### 5. Connecting to Hive
+
+Open to new terminal and start hive metastore service
+```
+hive --servvice metastore
+```
+
+Back to Presto client and run this command
+
+```
+./presto --server 127.0.0.1:8080 --catalog hive --schema test
+```
+![presto-cli](/imgs/presto-cli.png)
+
+You can use `presto://127.0.0.1:8080/hive` as connection string
